@@ -1,1 +1,57 @@
+# --- System ---
+.DS_Store
+Thumbs.db
+
+# --- Environment files ---
 .env
+.env.*
+*.env
+
+# --- Logs ---
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+debug.log
+
+# --- Node ---
+node_modules/
+dist/
+build/
+.cache/
+.npm/
+.eslintcache
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+*.egg-info/
+.venv/
+env/
+venv/
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS junk ---
+Icon?
+*.Trash
+
+# --- Misc ---
+coverage/
+*.sqlite3
+*.db
+*.pid
+*.seed
+*.tgz
+*.zip
+temp/
+tmp/
