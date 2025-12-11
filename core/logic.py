@@ -1,46 +1,44 @@
-import os
-from dotenv import load_dotenv
-import discord
-from discord import app_commands, Intents
-from core.logic import create_user_if_not_exists 
+import random
+import string
+from core.database import users_collection 
 
-# --- KONFIGURACJA / INICJALIZACJA ---
-load_dotenv()
-DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
-
-intents = Intents.default()
-intents.message_content = True 
-intents.members = True         
-client = discord.Client(intents=intents)
-tree = app_commands.CommandTree(client) 
-
-
-# --- KOMENDA /LINK (MODUŁ 1) ---
-@tree.command(name="link", description="Generuje kod do połączenia kont Discord i Telegram.")
-async def link_command(interaction: discord.Interaction):
-    discord_id = interaction.user.id
-    username = interaction.user.display_name
+# --- GENEROWANIE KODU PARUJĄCEGO ---
+def generate_link_code(length=6):
+    """Generuje unikalny kod (np. E4F7H9) i sprawdza jego unikalność w bazie."""
+    characters = string.ascii_uppercase + string.digits
+    code = ''.join(random.choice(characters) for i in range(length))
     
-    link_code, is_new_user = create_user_if_not_exists(discord_id, username)
+    if users_collection.find_one({"link_code": code}):
+        return generate_link_code(length)
+    return code
+
+# --- TWORZENIE/POBIERANIE UŻYTKOWNIKA ---
+def create_user_if_not_exists(discord_id: int, username: str):
+    """Tworzy nowy rekord użytkownika Discorda lub zwraca istniejący kod."""
+    existing_user = users_collection.find_one({"discord_id": discord_id})
     
-    if is_new_user:
-        message = f"✅ Konto utworzone! Kod: **`{link_code}`**."
-    else:
-        message = f"ℹ️ Jesteś już w systemie! Twój kod: **`{link_code}`**."
+    if existing_user:
+        return existing_user['link_code'], False 
+    
+    new_code = generate_link_code()
+    new_user_document = {
+        "discord_id": discord_id,
+        "telegram_id": None,
+        "link_code": new_code,
+        "username": username
+    }
+    users_collection.insert_one(new_user_document)
+    return new_code, True 
 
-    # Wysyłka wiadomości Ephemeral (prywatnej)
-    await interaction.response.send_message(message, ephemeral=True)
-
-
-# --- ZDARZENIA BOTA ---
-@client.event
-async def on_ready():
-    await tree.sync() # Synchronizacja komend
-    print(f'Bot Discorda zalogowany jako {client.user} i gotowy.')
-
-# --- FUNKCJA STARTOWA ---
-def run_discord_bot():
-    if not DISCORD_TOKEN:
-        print("Brak klucza DISCORD_TOKEN w .env! Uzupełnij go.")
-        return
-    client.run(DISCORD_TOKEN)
+def link_telegram_account(link_code: str, telegram_id: int):
+    """Łączy rekord użytkownika z ID Telegrama."""
+    user = users_collection.find_one({"link_code": link_code})
+    
+    if not user or user['telegram_id'] is not None:
+        return "not_found" if not user else "already_linked"
+        
+    users_collection.update_one(
+        {"link_code": link_code},
+        {"$set": {"telegram_id": telegram_id}}
+    )
+    return "success"
